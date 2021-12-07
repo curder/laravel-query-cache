@@ -37,7 +37,7 @@ This package allows you to cache all queries of type `select`, or only just the 
 Install the package via Composer:
 
 ```
-composer require neurony/laravel-query-cache
+composer require curder/laravel-query-cache
 ```
 
 Publish the config file with:

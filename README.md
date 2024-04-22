@@ -1,17 +1,3 @@
-# Package discontinued! Check out VARBOX.IO instead.
-
-Unfortunately this package is now discontinued.   
-Please check out [Varbox](https://varbox.io) (Laravel Admin Panel) for this functionality and much more.
-
-- Buy: [https://varbox.io/buy](https://varbox.io/buy)
-- Docs: [https://varbox.io/docs](https://varbox.io/docs)
-- Demo: [https://demo.varbox.test/admin](https://demo.varbox.test/admin)
-- Repo [https://github.com/VarboxInternational/varbox](https://github.com/VarboxInternational/varbox)
-
-Thank you! 
-
----
-
 ### Cache all "select" queries or only the duplicate ones for a specific Eloquent model
 
 [![Build Status](https://travis-ci.org/Neurony/laravel-query-cache.svg?branch=master)](https://travis-ci.org/Neurony/laravel-query-cache)

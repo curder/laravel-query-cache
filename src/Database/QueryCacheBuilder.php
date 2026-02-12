@@ -7,6 +7,7 @@ use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Query\Grammars\Grammar;
 use Illuminate\Database\Query\Processors\Processor;
+use Illuminate\Support\Str;
 
 class QueryCacheBuilder extends QueryBuilder
 {
@@ -38,9 +39,10 @@ class QueryCacheBuilder extends QueryBuilder
      */
     public function __construct(
         ConnectionInterface $connection,
-        Grammar $grammar = null,
-        Processor $processor = null,
-        $cacheTag = null, $cacheType = null
+        ?Grammar $grammar = null,
+        ?Processor $processor = null,
+        ?string $cacheTag = null,
+        ?int $cacheType = null
     ) {
         parent::__construct($connection, $grammar, $processor);
 
@@ -61,6 +63,49 @@ class QueryCacheBuilder extends QueryBuilder
     }
 
     /**
+     * Build a versioned cache key for a specific store/prefix.
+     */
+    protected function getQueryCacheKeyForStore(string $store, string $prefix): string
+    {
+        return json_encode([
+            'version' => $this->getCacheVersion($store, $prefix),
+            $this->toSql() => $this->getBindings(),
+        ]);
+    }
+
+    /**
+     * Resolve the cache version key for the current table.
+     */
+    protected function getCacheVersionKey(string $prefix): string
+    {
+        $table = $this->cacheTag ? Str::afterLast($this->cacheTag, '.') : '';
+
+        return 'query_cache_version:'.$prefix.':'.$table;
+    }
+
+    /**
+     * Get the current cache version for a store/prefix pair.
+     */
+    protected function getCacheVersion(string $store, string $prefix): int
+    {
+        return (int) cache()->store($store)->get($this->getCacheVersionKey($prefix), 1);
+    }
+
+    /**
+     * Bump the cache version to invalidate all existing keys for the table.
+     */
+    protected function bumpCacheVersion(string $store, string $prefix): void
+    {
+        $key = $this->getCacheVersionKey($prefix);
+
+        try {
+            cache()->store($store)->increment($key);
+        } catch (Exception $e) {
+            cache()->store($store)->put($key, time(), 0);
+        }
+    }
+
+    /**
      * Flush the query cache based on the model's cache tag.
      *
      * @return void
@@ -68,9 +113,46 @@ class QueryCacheBuilder extends QueryBuilder
      */
     public function flushQueryCache(): void
     {
-        cache()->store(
-            app('cache.query')->getAllQueryCacheStore()
-        )->tags($this->cacheTag)->flush();
+        $service = app('cache.query');
+
+        $stores = [];
+
+        if ($service->shouldCacheAllQueries()) {
+            $stores[] = [
+                'store' => $service->getAllQueryCacheStore(),
+                'prefix' => $service->getAllQueryCachePrefix(),
+            ];
+        }
+
+        if ($service->shouldCacheDuplicateQueries()) {
+            $stores[] = [
+                'store' => $service->getDuplicateQueryCacheStore(),
+                'prefix' => $service->getDuplicateQueryCachePrefix(),
+            ];
+        }
+
+        $stores = array_unique($stores, SORT_REGULAR);
+
+        $table = $this->cacheTag ? Str::afterLast($this->cacheTag, '.') : '';
+        $tags = [];
+
+        if ($service->shouldCacheAllQueries()) {
+            $tags[] = $service->getAllQueryCachePrefix().'.'.$table;
+        }
+
+        if ($service->shouldCacheDuplicateQueries()) {
+            $tags[] = $service->getDuplicateQueryCachePrefix().'.'.$table;
+        }
+
+        $tags = array_unique(array_filter($tags));
+
+        foreach ($stores as $storeConfig) {
+            foreach ($tags as $tag) {
+                cache()->store($storeConfig['store'])->tags($tag)->flush();
+            }
+
+            $this->bumpCacheVersion($storeConfig['store'], $storeConfig['prefix']);
+        }
     }
 
     /**
@@ -158,11 +240,14 @@ class QueryCacheBuilder extends QueryBuilder
      */
     protected function runSelectWithAllQueriesCached()
     {
-        return cache()->store(
-            app('cache.query')->getAllQueryCacheStore()
-        )->tags($this->cacheTag)->rememberForever($this->getQueryCacheKey(), function () {
-            return parent::runSelect();
-        });
+        $store = app('cache.query')->getAllQueryCacheStore();
+        $prefix = app('cache.query')->getAllQueryCachePrefix();
+
+        return cache()->store($store)
+            ->tags($this->cacheTag)
+            ->rememberForever($this->getQueryCacheKeyForStore($store, $prefix), function () {
+                return parent::runSelect();
+            });
     }
 
     /**
@@ -174,10 +259,13 @@ class QueryCacheBuilder extends QueryBuilder
      */
     protected function runSelectWithDuplicateQueriesCached()
     {
-        return cache()->store(
-            app('cache.query')->getDuplicateQueryCacheStore()
-        )->tags($this->cacheTag)->remember($this->getQueryCacheKey(), 1, function () {
-            return parent::runSelect();
-        });
+        $store = app('cache.query')->getDuplicateQueryCacheStore();
+        $prefix = app('cache.query')->getDuplicateQueryCachePrefix();
+
+        return cache()->store($store)
+            ->tags($this->cacheTag)
+            ->remember($this->getQueryCacheKeyForStore($store, $prefix), 1, function () {
+                return parent::runSelect();
+            });
     }
 }

@@ -131,6 +131,7 @@ class QueryCacheService implements QueryCacheServiceContract
     public function enableQueryCache(): void
     {
         $this->cacheAllQueries = $this->cacheDuplicateQueries = true;
+        config(['query-cache.all.enabled' => true]);
     }
 
     /**
@@ -142,6 +143,7 @@ class QueryCacheService implements QueryCacheServiceContract
     public function disableQueryCache(): void
     {
         $this->cacheAllQueries = $this->cacheDuplicateQueries = false;
+        config(['query-cache.all.enabled' => false]);
     }
 
     /**
@@ -151,7 +153,7 @@ class QueryCacheService implements QueryCacheServiceContract
      */
     public function canCacheQueries(): bool
     {
-        return $this->cacheAllQueries === true || $this->cacheDuplicateQueries === true;
+        return $this->shouldCacheAllQueries() || $this->shouldCacheDuplicateQueries();
     }
 
     /**
@@ -162,12 +164,16 @@ class QueryCacheService implements QueryCacheServiceContract
      */
     public function flushQueryCache(): void
     {
-        if (! self::canCacheQueries()) {
+        if (!self::canCacheQueries()) {
             return;
         }
 
         if (self::shouldCacheAllQueries()) {
             cache()->store(self::getAllQueryCacheStore())->flush();
+        }
+
+        if (self::shouldCacheDuplicateQueries()) {
+            cache()->store(self::getDuplicateQueryCacheStore())->flush();
         }
     }
 
@@ -182,25 +188,65 @@ class QueryCacheService implements QueryCacheServiceContract
      */
     public function clearQueryCache(Model $model): void
     {
-        if (! ((self::shouldCacheAllQueries() || self::shouldCacheDuplicateQueries()) && self::canCacheQueries())) {
+        if (!((self::shouldCacheAllQueries() || self::shouldCacheDuplicateQueries()) && self::canCacheQueries())) {
             return;
         }
 
         try {
             $this->model = $model;
 
-            cache()->store(self::getAllQueryCacheStore())->tags($this->model->getQueryCacheTag())->flush();
+            $stores = $this->getCacheStores();
+
+            foreach ($stores as $store) {
+                cache()->store($store['store'])->tags($store['tagResolver']($this->model))->flush();
+            }
 
             foreach (RelationHelper::getModelRelations($this->model) as $relation => $attributes) {
                 if (
                     ($related = $attributes['model'] ?? null) && $related instanceof Model &&
                     array_key_exists(IsCacheable::class, class_uses($related))
                 ) {
-                    cache()->store(self::getAllQueryCacheStore())->tags($related->getQueryCacheTag())->flush();
+                    foreach ($stores as $store) {
+                        cache()->store($store['store'])->tags($store['tagResolver']($related))->flush();
+                    }
                 }
             }
         } catch (Exception $e) {
             self::flushQueryCache();
         }
+    }
+
+    /**
+     * Build the list of cache stores and tag resolvers based on enabled caching modes.
+     *
+     * @return array<int, array<string, callable>>
+     */
+    protected function getCacheStores(): array
+    {
+        $stores = [];
+
+        if (self::shouldCacheAllQueries()) {
+            $stores[] = [
+                'store' => self::getAllQueryCacheStore(),
+                'tagResolver' => function (Model $model) {
+                    return method_exists($model, 'getQueryCacheTag')
+                        ? $model->getQueryCacheTag()
+                        : $model->getTable();
+                }
+            ];
+        }
+
+        if (self::shouldCacheDuplicateQueries()) {
+            $stores[] = [
+                'store' => self::getDuplicateQueryCacheStore(),
+                'tagResolver' => function (Model $model) {
+                    return method_exists($model, 'getDuplicateQueryCacheTag')
+                        ? $model->getDuplicateQueryCacheTag()
+                        : (method_exists($model, 'getQueryCacheTag') ? $model->getQueryCacheTag() : $model->getTable());
+                },
+            ];
+        }
+
+        return $stores;
     }
 }

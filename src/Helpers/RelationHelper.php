@@ -23,14 +23,14 @@ class RelationHelper
      *
      * @var array
      */
-    protected static $relations = [];
+    protected static array $relations = [];
 
     /**
      * Laravel's available relation types (classes|methods).
      *
      * @var array
      */
-    protected static $relationTypes = [
+    protected static array $relationTypes = [
         'hasOne',
         'hasMany',
         'hasManyThrough',
@@ -47,7 +47,7 @@ class RelationHelper
      *
      * @var array
      */
-    protected static $directRelations = [
+    protected static array $directRelations = [
         HasOne::class,
         MorphOne::class,
         HasMany::class,
@@ -61,7 +61,7 @@ class RelationHelper
      *
      * @var array
      */
-    protected static $pivotedRelations = [
+    protected static array $pivotedRelations = [
         BelongsToMany::class,
         MorphToMany::class,
     ];
@@ -71,7 +71,7 @@ class RelationHelper
      *
      * @var array
      */
-    protected static $parentRelations = [
+    protected static array $parentRelations = [
         BelongsTo::class,
         MorphTo::class,
     ];
@@ -81,7 +81,7 @@ class RelationHelper
      *
      * @var array
      */
-    protected static $childRelations = [
+    protected static array $childRelations = [
         HasOne::class,
         MorphOne::class,
         HasMany::class,
@@ -93,7 +93,7 @@ class RelationHelper
      *
      * @var array
      */
-    protected static $childRelationsSingle = [
+    protected static array $childRelationsSingle = [
         HasOne::class,
         MorphOne::class,
     ];
@@ -103,7 +103,7 @@ class RelationHelper
      *
      * @var array
      */
-    protected static $childRelationsMultiple = [
+    protected static array $childRelationsMultiple = [
         HasMany::class,
         MorphMany::class,
     ];

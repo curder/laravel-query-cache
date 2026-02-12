@@ -1,7 +1,6 @@
 <?php
 
 return [
-
     /*
     |
     | The below configuration options are for caching absolutely all queries, forever.
@@ -37,7 +36,6 @@ return [
         |
         */
         'prefix' => 'cache.all_query',
-
     ],
 
     /*
@@ -46,7 +44,6 @@ return [
     |
     */
     'duplicate' => [
-
         /*
         |
         | Flag indicating whether or not query caching only on duplicate queries should run (only for the current request).
@@ -76,7 +73,5 @@ return [
         |
         */
         'prefix' => 'cache.duplicate_query',
-
     ],
-
 ];

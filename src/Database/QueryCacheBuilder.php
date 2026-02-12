@@ -218,17 +218,11 @@ class QueryCacheBuilder extends QueryBuilder
      */
     protected function runSelect(): array
     {
-        switch ($this->cacheType) {
-            case app('cache.query')->cacheAllQueriesForeverType():
-                return $this->runSelectWithAllQueriesCached();
-                break;
-            case app('cache.query')->cacheOnlyDuplicateQueriesOnceType():
-                return $this->runSelectWithDuplicateQueriesCached();
-                break;
-            default:
-                return parent::runSelect();
-                break;
-        }
+        return match ($this->cacheType) {
+            app('cache.query')->cacheAllQueriesForeverType() => $this->runSelectWithAllQueriesCached(),
+            app('cache.query')->cacheOnlyDuplicateQueriesOnceType() => $this->runSelectWithDuplicateQueriesCached(),
+            default => parent::runSelect(),
+        };
     }
 
     /**

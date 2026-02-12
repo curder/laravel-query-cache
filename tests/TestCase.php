@@ -86,11 +86,11 @@ abstract class TestCase extends Orchestra
     protected function executePostQueries(): void
     {
         for ($i = 1; $i <= 10; $i++) {
-            Post::all();
+            Post::query()->get();
         }
 
         for ($i = 1; $i <= 10; $i++) {
-            Post::where(1)->get();
+            Post::query()->where(1)->get();
         }
     }
 
@@ -100,11 +100,11 @@ abstract class TestCase extends Orchestra
     protected function executePostAndCommentQueries(): void
     {
         for ($i = 1; $i <= 10; $i++) {
-            Post::all();
+            Post::query()->get();
         }
 
         for ($i = 1; $i <= 10; $i++) {
-            Comment::all();
+            Comment::query()->get();
         }
     }
 }

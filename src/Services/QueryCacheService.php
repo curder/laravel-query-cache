@@ -16,21 +16,21 @@ class QueryCacheService implements QueryCacheServiceContract
      *
      * @var Model
      */
-    protected $model;
+    protected Model $model;
 
     /**
      * Flag whether or not to cache queries forever.
      *
      * @var bool
      */
-    protected $cacheAllQueries = true;
+    protected bool $cacheAllQueries = true;
 
     /**
      * Flag whether or not to cache only duplicate queries for the current request.
      *
      * @var bool
      */
-    protected $cacheDuplicateQueries = true;
+    protected bool $cacheDuplicateQueries = true;
 
     /**
      * The query cache types available.
@@ -89,7 +89,7 @@ class QueryCacheService implements QueryCacheServiceContract
      */
     public function shouldCacheAllQueries(): bool
     {
-        return config('query-cache.all.enabled', false) === true;
+        return $this->cacheAllQueries && config('query-cache.all.enabled', false) === true;
     }
 
     /**
@@ -99,7 +99,7 @@ class QueryCacheService implements QueryCacheServiceContract
      */
     public function shouldCacheDuplicateQueries(): bool
     {
-        return config('query-cache.duplicate.enabled', false) === true;
+        return $this->cacheDuplicateQueries && config('query-cache.duplicate.enabled', false) === true;
     }
 
     /**
@@ -131,7 +131,6 @@ class QueryCacheService implements QueryCacheServiceContract
     public function enableQueryCache(): void
     {
         $this->cacheAllQueries = $this->cacheDuplicateQueries = true;
-        config(['query-cache.all.enabled' => true]);
     }
 
     /**
@@ -143,7 +142,6 @@ class QueryCacheService implements QueryCacheServiceContract
     public function disableQueryCache(): void
     {
         $this->cacheAllQueries = $this->cacheDuplicateQueries = false;
-        config(['query-cache.all.enabled' => false]);
     }
 
     /**
@@ -164,7 +162,7 @@ class QueryCacheService implements QueryCacheServiceContract
      */
     public function flushQueryCache(): void
     {
-        if (!self::canCacheQueries()) {
+        if (! self::canCacheQueries()) {
             return;
         }
 
@@ -188,7 +186,7 @@ class QueryCacheService implements QueryCacheServiceContract
      */
     public function clearQueryCache(Model $model): void
     {
-        if (!((self::shouldCacheAllQueries() || self::shouldCacheDuplicateQueries()) && self::canCacheQueries())) {
+        if (! ((self::shouldCacheAllQueries() || self::shouldCacheDuplicateQueries()) && self::canCacheQueries())) {
             return;
         }
 
@@ -228,22 +226,18 @@ class QueryCacheService implements QueryCacheServiceContract
         if (self::shouldCacheAllQueries()) {
             $stores[] = [
                 'store' => self::getAllQueryCacheStore(),
-                'tagResolver' => function (Model $model) {
-                    return method_exists($model, 'getQueryCacheTag')
-                        ? $model->getQueryCacheTag()
-                        : $model->getTable();
-                }
+                'tagResolver' => static fn (Model $model): string => method_exists($model, 'getQueryCacheTag')
+                    ? $model->getQueryCacheTag()
+                    : $model->getTable(),
             ];
         }
 
         if (self::shouldCacheDuplicateQueries()) {
             $stores[] = [
                 'store' => self::getDuplicateQueryCacheStore(),
-                'tagResolver' => function (Model $model) {
-                    return method_exists($model, 'getDuplicateQueryCacheTag')
-                        ? $model->getDuplicateQueryCacheTag()
-                        : (method_exists($model, 'getQueryCacheTag') ? $model->getQueryCacheTag() : $model->getTable());
-                },
+                'tagResolver' => static fn (Model $model): string => method_exists($model, 'getDuplicateQueryCacheTag')
+                    ? $model->getDuplicateQueryCacheTag()
+                    : (method_exists($model, 'getQueryCacheTag') ? $model->getQueryCacheTag() : $model->getTable()),
             ];
         }
 
